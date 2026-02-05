@@ -147,6 +147,17 @@ export default function HushApp() {
     ? Math.max(0, (myLiveNote.replies?.length || 0) - lastSeenReplyCount) 
     : 0;
 
+  // Effect to clear notifications when viewing own note
+  useEffect(() => {
+    if (modalMode === 'view' && activeNoteId && myLiveNote && activeNoteId === myLiveNote.id) {
+      const currentCount = myLiveNote.replies?.length || 0;
+      if (currentCount > lastSeenReplyCount) {
+        setLastSeenReplyCount(currentCount);
+        localStorage.setItem('hush_last_seen_replies', currentCount);
+      }
+    }
+  }, [modalMode, activeNoteId, myLiveNote, lastSeenReplyCount]);
+
   // Form States
   const [draftName, setDraftName] = useState("");
   const [draftText, setDraftText] = useState("");
@@ -204,7 +215,6 @@ export default function HushApp() {
   const handleFabClick = () => {
     if (myLiveNote) {
       setModalMode('alert');
-      // DO NOT clear notification count here
     }
     else {
       setModalMode('compose');
@@ -573,7 +583,6 @@ export default function HushApp() {
             {myLiveNote ? (
               <>
                 <User size={28} /> 
-                {/* REMOVED: {unreadCount > 0 && <div className="notif-badge">{unreadCount}</div>} */}
               </>
             ) : <Plus size={32} />}
           </motion.button>

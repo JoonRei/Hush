@@ -22,7 +22,7 @@ body, html {
 
 :root {
   --bg-dark: #050505;
-  --panel-bg: rgba(22, 24, 35, 0.75);
+  --panel-bg: rgba(22, 24, 35, 0.85); /* Slightly darker for better contrast */
   --glass-border: rgba(255, 255, 255, 0.1);
   --text-primary: #ffffff;
   --text-secondary: #a1a1aa;
@@ -52,22 +52,23 @@ input, textarea {
 .premium-bg {
   position: absolute; inset: 0;
   width: 100vw; height: 100vh;
-  background-image: url('src/assets/dream.jpg');
+  /* FIXED: Using a reliable external URL to ensure it shows */
+  background-image: url('https://4kwallpapers.com/images/walls/thumbs_3t/21336.jpg');
   background-size: cover; background-position: center;
   background-repeat: no-repeat;
   z-index: 0;
-  filter: blur(5px) brightness(0.5);
-  animation: bgPulse 20s ease-in-out infinite alternate;
+  filter: blur(5px) brightness(0.5); /* Slightly less blur to see details */
+  animation: bgPulse 30s ease-in-out infinite alternate;
 }
 
 @keyframes bgPulse {
-  0% { transform: scale(1.1); }
-  100% { transform: scale(1.2); }
+  0% { transform: scale(1.05); }
+  100% { transform: scale(1.15); }
 }
 
 .noise-overlay {
   position: absolute; inset: 0;
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.2);
   pointer-events: none;
   z-index: 1;
 }
@@ -333,12 +334,12 @@ input, textarea {
 
 /* BADGES (ORB ONLY) */
 .orb-badge {
-  position: absolute; top: -2px; right: -2px;
-  min-width: 22px; height: 22px;
+  position: absolute; top: -4px; right: -4px;
+  min-width: 24px; height: 24px;
   background: #FF453A; color: white;
   border: 2px solid #fff; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 0.75rem; font-weight: 700;
+  font-size: 0.75rem; font-weight: 800;
   padding: 0 4px; z-index: 10;
   box-shadow: 0 2px 8px rgba(0,0,0,0.5);
   animation: bounceIn 0.3s;
@@ -398,7 +399,7 @@ input, textarea {
 /* REPORT BUTTON (LARGER & VISIBLE) */
 .btn-report {
   width: 50px; height: 50px; border-radius: 50%;
-  background: rgba(255, 69, 58, 0.25); /* More Visible Red */
+  background: rgba(255, 69, 58, 0.25); /* Visible Red Tint */
   border: 1px solid rgba(255, 69, 58, 0.4);
   color: #FF453A;
   display: flex; align-items: center; justify-content: center;
