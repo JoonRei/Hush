@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-// Icons - Using FLAG for report
+// Icons
 import { 
   Plus, X, Heart, Send, MapPin, Clock, Trash2, AlertCircle, Camera, CheckCircle, Ghost, 
   Shield, Ban, HeartHandshake, User, ArrowRight, Wind, Lock, Globe, Fingerprint, 
@@ -60,7 +60,6 @@ const itemVar = {
   visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 50, damping: 20 } }
 };
 
-// Swiping Animation for Batches
 const slideVariants = {
   hidden: { opacity: 0, x: 20 },
   visible: { opacity: 1, x: 0, transition: { duration: 0.3, ease: "easeOut" } },
@@ -77,12 +76,10 @@ export default function HushApp() {
   const [notes, setNotes] = useState([]);
   const [activeNoteId, setActiveNoteId] = useState(null); 
   const [modalMode, setModalMode] = useState(null);
-  
-  // --- BATCHING STATE ---
   const [batchIndex, setBatchIndex] = useState(0);
   const BATCH_SIZE = 6;
   
-  // Local Like & Report Tracking (PERSISTED)
+  // Local State
   const [likedIds, setLikedIds] = useState(() => {
     const saved = localStorage.getItem('hush_liked_ids');
     return new Set(saved ? JSON.parse(saved) : []);
@@ -96,21 +93,15 @@ export default function HushApp() {
     return new Set(saved ? JSON.parse(saved) : []);
   });
   
-  // Persist State to LocalStorage
   useEffect(() => { localStorage.setItem('hush_liked_ids', JSON.stringify([...likedIds])); }, [likedIds]);
   useEffect(() => { localStorage.setItem('hush_liked_reply_ids', JSON.stringify([...likedReplyIds])); }, [likedReplyIds]);
   useEffect(() => { localStorage.setItem('hush_reported_ids', JSON.stringify([...reportedIds])); }, [reportedIds]);
 
   const [toasts, setToasts] = useState([]);
-
-  // --- AUDIO STATE ---
   const audioRef = useRef(null);
-
-  // --- APP FLOW STATE ---
   const [showWelcome, setShowWelcome] = useState(true);
   const [showTerms, setShowTerms] = useState(false);
 
-  // --- USER IDENTITY ---
   const [userSeed] = useState(() => {
     const saved = localStorage.getItem("hush_user_seed");
     if (saved) return saved;
@@ -120,12 +111,10 @@ export default function HushApp() {
   });
   const [myProfileImg, setMyProfileImg] = useState(null);
   
-  // --- DERIVED STATE (REAL-TIME) ---
   const myLiveNote = notes.find(n => n.seed === userSeed);
   const activeNote = notes.find(n => n.id === activeNoteId);
   const isMine = activeNote?.seed === userSeed;
 
-  // Pagination Logic (Filtering hushed notes > 3)
   const validNotes = notes.filter(n => getTimeLeft(n.createdAt) !== "Expired" && (n.hushes || 0) < 3);
   const totalBatches = Math.ceil(validNotes.length / BATCH_SIZE);
   
@@ -137,17 +126,14 @@ export default function HushApp() {
 
   const visibleNotes = validNotes.slice(batchIndex * BATCH_SIZE, (batchIndex + 1) * BATCH_SIZE);
 
-  // NOTIFICATION LOGIC
   const [lastSeenReplyCount, setLastSeenReplyCount] = useState(() => {
     return Number(localStorage.getItem('hush_last_seen_replies') || 0);
   });
   
-  // Calculate unread replies
   const unreadCount = myLiveNote 
     ? Math.max(0, (myLiveNote.replies?.length || 0) - lastSeenReplyCount) 
     : 0;
 
-  // Effect to clear notifications when viewing own note
   useEffect(() => {
     if (modalMode === 'view' && activeNoteId && myLiveNote && activeNoteId === myLiveNote.id) {
       const currentCount = myLiveNote.replies?.length || 0;
@@ -158,7 +144,6 @@ export default function HushApp() {
     }
   }, [modalMode, activeNoteId, myLiveNote, lastSeenReplyCount]);
 
-  // Form States
   const [draftName, setDraftName] = useState("");
   const [draftText, setDraftText] = useState("");
   const [selectedMood, setSelectedMood] = useState(MOODS[0]); 
@@ -168,7 +153,6 @@ export default function HushApp() {
   const [replyText, setReplyText] = useState("");
   const scrollRef = useRef(null);
 
-  // --- DATABASE LISTENER ---
   useEffect(() => {
     const q = query(collection(db, "notes"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -178,7 +162,6 @@ export default function HushApp() {
     return () => unsubscribe();
   }, []);
 
-  // --- HELPERS ---
   const addToast = (msg) => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, msg }]);
@@ -187,15 +170,13 @@ export default function HushApp() {
 
   const getCityLeaderboard = () => {
     const counts = {};
-    validNotes.forEach(note => { // Use validNotes to respect hush filter
+    validNotes.forEach(note => {
       const loc = note.location;
       if (loc && !loc.includes("Earth") && !loc.includes("Locating")) { 
         counts[loc] = (counts[loc] || 0) + 1;
       }
     });
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
   };
 
   const handleEnterApp = () => {
@@ -213,12 +194,8 @@ export default function HushApp() {
   };
 
   const handleFabClick = () => {
-    if (myLiveNote) {
-      setModalMode('alert');
-    }
-    else {
-      setModalMode('compose');
-    }
+    if (myLiveNote) setModalMode('alert');
+    else setModalMode('compose');
   };
 
   const handleImageUpload = (e) => {
@@ -247,6 +224,35 @@ export default function HushApp() {
     }
   };
 
+  // --- UPDATED COLLISION DETECTION ALGORITHM ---
+  // Increased buffer size to prevent overlapping
+  const getSafePosition = (existingNotes) => {
+    const maxTries = 100; // More tries to find a spot
+    const buffer = 22; // Increased from 15 to 22 (Percentage of screen) to ensure gap
+    
+    for (let i = 0; i < maxTries; i++) {
+      // Tighter bounds to keep notes away from the very edge
+      const x = Math.random() * 70 + 15; // 15% to 85% width
+      const y = Math.random() * 60 + 20; // 20% to 80% height
+      
+      const collision = existingNotes.some(n => {
+        if (!n.x || !n.y) return false;
+        const dx = n.x - x;
+        const dy = n.y - y;
+        // Check Euclidean distance
+        return Math.sqrt(dx*dx + dy*dy) < buffer;
+      });
+
+      if (!collision) return { x, y };
+    }
+    
+    // Fallback: Random spot with slight offset if we can't find a perfect one
+    return { 
+      x: Math.random() * 70 + 15, 
+      y: Math.random() * 60 + 20 
+    };
+  };
+
   const handlePublish = async () => {
     if (!draftText.trim()) return;
     if (uploadedImage) setMyProfileImg(uploadedImage);
@@ -254,14 +260,16 @@ export default function HushApp() {
     setLastSeenReplyCount(0);
     localStorage.setItem('hush_last_seen_replies', 0);
 
+    // Calculate safe position based on ALL current notes
+    const { x, y } = getSafePosition(notes); 
+
     const newNote = {
       text: filterProfanity(draftText),
       name: draftName || "Anonymous",
       mood: selectedMood,
       image: uploadedImage, 
       seed: userSeed,
-      x: Math.random() * 60 + 20,
-      y: Math.random() * 50 + 20,
+      x, y,
       loves: 0,
       hushes: 0, 
       location: locationName,
@@ -293,7 +301,6 @@ export default function HushApp() {
       addToast("You already reported this.");
       return;
     }
-    
     const noteRef = doc(db, "notes", noteId);
     try {
       await updateDoc(noteRef, { hushes: increment(1) });
@@ -355,7 +362,6 @@ export default function HushApp() {
     } catch (e) { console.error(e); }
   };
 
-  // Helper to change batch
   const nextBatch = () => setBatchIndex(prev => Math.min(totalBatches - 1, prev + 1));
   const prevBatch = () => setBatchIndex(prev => Math.max(0, prev - 1));
 
@@ -365,7 +371,6 @@ export default function HushApp() {
       <div className="noise-overlay" />
       <audio ref={audioRef} loop src="https://cdn.pixabay.com/download/audio/2022/11/02/audio_9a36758414.mp3?filename=relaxing-night-113845.mp3" />
 
-      {/* --- WELCOME SCREEN --- */}
       <AnimatePresence>
         {showWelcome && (
           <motion.div className="welcome-container" variants={containerVar} initial="hidden" animate="visible" exit="exit">
@@ -374,7 +379,6 @@ export default function HushApp() {
                   <motion.h1 className="welcome-title" variants={itemVar}>Hush.</motion.h1>
                   <motion.div className="welcome-subtitle" variants={itemVar}>The Quiet Social Network</motion.div>
                 </div>
-
                 <motion.div className="feature-grid" variants={containerVar}>
                   <motion.div className="feature-card" variants={itemVar}>
                     <div className="feat-icon"><Wind size={24} /></div>
@@ -392,7 +396,6 @@ export default function HushApp() {
                     <div className="feat-desc">Connect with souls around the world, completely unseen.</div>
                   </motion.div>
                 </motion.div>
-
                 <motion.button className="btn-enter-glow" onClick={handleEnterApp} variants={itemVar} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                   Enter
                 </motion.button>
@@ -401,44 +404,20 @@ export default function HushApp() {
         )}
       </AnimatePresence>
 
-      {/* --- TERMS POPUP --- */}
       <AnimatePresence>
         {showTerms && (
           <div className="backdrop">
             <motion.div className="manifesto-container" variants={modalVariants} initial="hidden" animate="visible" exit="exit">
                <h2 className="manifesto-title">The Code of Silence</h2>
-               
-               <div className="rule-row">
-                 <div className="rule-num">01</div>
-                 <div className="rule-content">
-                   <h4>Be Kind, Always</h4>
-                   <p>Behind every anonymous dot is a real human heart. Treat them gently.</p>
-                 </div>
-               </div>
-               <div className="rule-row">
-                 <div className="rule-num">02</div>
-                 <div className="rule-content">
-                   <h4>Protect Identity</h4>
-                   <p>Do not share names, addresses, or socials. This is a sanctuary, not a marketplace.</p>
-                 </div>
-               </div>
-               <div className="rule-row">
-                 <div className="rule-num">03</div>
-                 <div className="rule-content">
-                   <h4>One Voice</h4>
-                   <p>You may only whisper once every 24 hours. Make it count.</p>
-                 </div>
-               </div>
-
-               <button className="btn-primary" onClick={handleAcceptTerms} style={{width:'100%', marginTop: 24, fontSize: '1rem'}}>
-                 I Agree
-               </button>
+               <div className="rule-row"><div className="rule-num">01</div><div className="rule-content"><h4>Be Kind, Always</h4><p>Behind every anonymous dot is a real human heart. Treat them gently.</p></div></div>
+               <div className="rule-row"><div className="rule-num">02</div><div className="rule-content"><h4>Protect Identity</h4><p>Do not share names, addresses, or socials. This is a sanctuary, not a marketplace.</p></div></div>
+               <div className="rule-row"><div className="rule-num">03</div><div className="rule-content"><h4>One Voice</h4><p>You may only whisper once every 24 hours. Make it count.</p></div></div>
+               <button className="btn-primary" onClick={handleAcceptTerms} style={{width:'100%', marginTop: 24, fontSize: '1rem'}}>I Agree</button>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      {/* MAIN APP UI */}
       {!showWelcome && !showTerms && (
         <>
           <motion.div style={{position: 'absolute', top: 50, left: 40, zIndex: 50}} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
@@ -456,82 +435,34 @@ export default function HushApp() {
             </AnimatePresence>
           </div>
 
-          {/* PERMANENT LEADERBOARD OVERLAY */}
-          <motion.div 
-            className="leaderboard-card"
-            initial={{opacity:0, x:20}} animate={{opacity:1, x:0}} transition={{delay:1}}
-          >
-             <div className="lb-header">
-               <Trophy size={16} color="#FFD700" />
-               <span>City Leaderboard</span>
-             </div>
+          <motion.div className="leaderboard-card" initial={{opacity:0, x:20}} animate={{opacity:1, x:0}} transition={{delay:1}}>
+             <div className="lb-header"><Trophy size={16} color="#FFD700" /><span>City Leaderboard</span></div>
              <div className="lb-list">
                {getCityLeaderboard().length > 0 ? getCityLeaderboard().map(([city, count], idx) => (
                  <div key={city} className="lb-row">
-                    <div className="lb-rank-col">
-                      <span>#{idx+1}</span>
-                      <span>{city}</span>
-                    </div>
+                    <div className="lb-rank-col"><span>#{idx+1}</span><span>{city}</span></div>
                     <span className="lb-badge">{count}</span>
                  </div>
-               )) : (
-                 <div style={{fontSize:'0.75rem', color:'#666', textAlign:'center', padding:10}}>
-                   Waiting for whispers...
-                 </div>
-               )}
+               )) : <div style={{fontSize:'0.75rem', color:'#666', textAlign:'center', padding:10}}>Waiting for whispers...</div>}
              </div>
           </motion.div>
 
-          {/* EMPTY STATE */}
           {validNotes.length === 0 && (
             <motion.div className="empty-state" initial={{opacity:0}} animate={{opacity:1}} transition={{delay: 1}}>
-              <div className="ghost-icon">
-                <Ghost size={32} color="white" />
-              </div>
+              <div className="ghost-icon"><Ghost size={32} color="white" /></div>
               <div className="empty-text">It's quiet here...</div>
               <div style={{fontSize: '0.9rem', color: '#666', marginTop: 8}}>Be the first to whisper.</div>
             </motion.div>
           )}
 
-          {/* CONSTELLATION LAYER (SVG) */}
-          <svg className="constellation-layer" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <filter id="glow">
-                <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
-                <feMerge>
-                  <feMergeNode in="coloredBlur"/>
-                  <feMergeNode in="SourceGraphic"/>
-                </feMerge>
-              </filter>
-            </defs>
-            {visibleNotes.map((note, i) => {
-               // Only draw line to next note if same mood
-               if (i < visibleNotes.length - 1) {
-                 const nextNote = visibleNotes[i+1];
-                 if (note.mood.id !== 'none' && note.mood.id === nextNote.mood.id) {
-                   return (
-                     <line 
-                       key={`line-${note.id}-${nextNote.id}`}
-                       x1={`${note.x}%`} y1={`${note.y}%`}
-                       x2={`${nextNote.x}%`} y2={`${nextNote.y}%`}
-                       stroke={note.mood.color}
-                       className="constellation-line"
-                     />
-                   )
-                 }
-               }
-               return null;
-            })}
-          </svg>
+          {/* SVG Connection Strings Removed Here */}
 
-          {/* ORBS (With Batching) */}
           <AnimatePresence mode="wait">
             <motion.div 
               key={batchIndex} 
               initial="hidden" animate="visible" exit="exit" variants={slideVariants}
               style={{position: 'absolute', inset: 0, pointerEvents: 'none'}} 
             >
-              {/* Sort by mood to make constellations nicer chains */}
               {[...visibleNotes].sort((a,b) => a.mood.id.localeCompare(b.mood.id)).map((note) => {
                 const glowColor = note.mood?.id === 'none' ? 'rgba(255,255,255,0.4)' : note.mood?.color || '#fff';
                 const isMineNote = note.seed === userSeed;
@@ -570,7 +501,6 @@ export default function HushApp() {
             </motion.div>
           </AnimatePresence>
 
-          {/* BATCH CONTROLS */}
           {totalBatches > 1 && (
             <div className="batch-controls">
               <button className="nav-arrow" onClick={prevBatch} disabled={batchIndex === 0}><ChevronLeft size={24}/></button>
@@ -580,18 +510,12 @@ export default function HushApp() {
           )}
 
           <motion.button className="fab-main" onClick={handleFabClick} initial={{ scale: 0 }} animate={{ scale: 1 }}>
-            {myLiveNote ? (
-              <>
-                <User size={28} /> 
-              </>
-            ) : <Plus size={32} />}
+            {myLiveNote ? <User size={28} /> : <Plus size={32} />}
           </motion.button>
         </>
       )}
 
-      {/* --- MODALS (COMPOSE/VIEW/ALERT/DELETE) --- */}
       <AnimatePresence>
-        {/* COMPOSE */}
         {modalMode === 'compose' && (
           <div className="backdrop">
             <motion.div className="glass-panel" variants={modalVariants} initial="hidden" animate="visible" exit="exit">
@@ -643,7 +567,6 @@ export default function HushApp() {
           </div>
         )}
 
-        {/* VIEW */}
         {modalMode === 'view' && activeNote && (
           <div className="backdrop" onClick={() => setModalMode(null)}>
             <motion.div className="glass-panel" onClick={e => e.stopPropagation()} variants={modalVariants} initial="hidden" animate="visible" exit="exit">
@@ -695,7 +618,6 @@ export default function HushApp() {
                     <Trash2 size={18} /> Delete My Note
                   </button>
                 ) : (
-                  /* FOOTER LAYOUT UPDATE: REPORT BUTTON NEXT TO INPUT */
                   <div className="input-group-wrapper">
                     <button className="btn-report" onClick={() => setModalMode('report_confirm')} title="Report this note">
                       <Flag size={24} />
@@ -713,7 +635,6 @@ export default function HushApp() {
           </div>
         )}
 
-        {/* REPORT CONFIRMATION MODAL */}
         {modalMode === 'report_confirm' && (
           <div className="backdrop">
             <motion.div className="glass-panel" style={{height: 'auto', width: 340}} variants={modalVariants} initial="hidden" animate="visible" exit="exit">
@@ -734,7 +655,6 @@ export default function HushApp() {
           </div>
         )}
 
-        {/* DELETE CONFIRMATION MODAL */}
         {modalMode === 'delete_confirm' && (
           <div className="backdrop">
             <motion.div className="glass-panel" style={{height: 'auto', width: 340}} variants={modalVariants} initial="hidden" animate="visible" exit="exit">
@@ -755,7 +675,6 @@ export default function HushApp() {
           </div>
         )}
 
-        {/* ALERT */}
         {modalMode === 'alert' && (
           <div className="backdrop">
             <motion.div className="glass-panel" style={{height: 'auto', width: 340}} variants={modalVariants} initial="hidden" animate="visible" exit="exit">
@@ -771,7 +690,6 @@ export default function HushApp() {
                      if(myNote) { 
                        setActiveNoteId(myNote.id);
                        setModalMode('view'); 
-                       // UPDATE: Clear notification count here when actually VIEWING
                        const count = myNote.replies?.length || 0;
                        setLastSeenReplyCount(count);
                        localStorage.setItem('hush_last_seen_replies', count);
