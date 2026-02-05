@@ -12,7 +12,7 @@ import './App.css';
 import { db } from './firebase';
 import { 
   collection, addDoc, deleteDoc, doc, updateDoc, getDoc,
-  onSnapshot, query, orderBy, arrayUnion, increment 
+  onSnapshot, query, orderBy, arrayUnion, increment, limit 
 } from 'firebase/firestore';
 
 // --- CONFIGURATION ---
@@ -154,7 +154,7 @@ export default function HushApp() {
   const scrollRef = useRef(null);
 
   useEffect(() => {
-    const q = query(collection(db, "notes"), orderBy("createdAt", "desc"));
+    const q = query(collection(db, "notes"), orderBy("createdAt", "desc"), limit(50));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const notesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setNotes(notesData);
@@ -228,7 +228,7 @@ export default function HushApp() {
   // Increased buffer size to prevent overlapping
   const getSafePosition = (existingNotes) => {
     const maxTries = 100; // More tries to find a spot
-    const buffer = 22; // Increased from 15 to 22 (Percentage of screen) to ensure gap
+    const buffer = 22; // Percentage of screen buffer
     
     for (let i = 0; i < maxTries; i++) {
       // Tighter bounds to keep notes away from the very edge
@@ -246,7 +246,7 @@ export default function HushApp() {
       if (!collision) return { x, y };
     }
     
-    // Fallback: Random spot with slight offset if we can't find a perfect one
+    // Fallback: Random spot if we can't find a perfect one
     return { 
       x: Math.random() * 70 + 15, 
       y: Math.random() * 60 + 20 
@@ -458,8 +458,6 @@ export default function HushApp() {
               <div style={{fontSize: '0.9rem', color: '#666', marginTop: 8}}>Be the first to whisper.</div>
             </motion.div>
           )}
-
-          {/* SVG Connection Strings Removed Here */}
 
           <AnimatePresence mode="wait">
             <motion.div 
