@@ -183,7 +183,7 @@ export default function HushApp() {
     setShowWelcome(false);
     setShowTerms(true);
     if (audioRef.current) {
-      audioRef.current.volume = 0.3; 
+      audioRef.current.volume = 0.2; 
       audioRef.current.play().catch(e => console.log("Audio autoplay blocked until interaction", e));
     }
   };
@@ -369,7 +369,11 @@ export default function HushApp() {
     <div className="hush-wrapper">
       <div className="premium-bg" />
       <div className="noise-overlay" />
-      <audio ref={audioRef} loop src="https://cdn.pixabay.com/download/audio/2022/11/02/audio_9a36758414.mp3?filename=relaxing-night-113845.mp3" />
+      <audio 
+  ref={audioRef} 
+  loop 
+  src="/music/bg-music.mp3" 
+/>
 
       <AnimatePresence>
         {showWelcome && (
